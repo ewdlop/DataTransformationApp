@@ -198,6 +198,183 @@ def test_image_steganography():
     except Exception as e:
         print(f"❌ 圖像隱寫術測試出錯: {str(e)}")
 
+def test_file_encryption():
+    """測試文件加密功能"""
+    print("\n📁 測試文件加密...")
+    
+    try:
+        import io
+        
+        # 創建測試文件內容
+        test_content = "這是一個測試文件的內容，包含中文字符。\nThis is a test file content.".encode('utf-8')
+        
+        # 測試文件加密
+        files = {'file': ('test.txt', io.BytesIO(test_content), 'text/plain')}
+        data = {'password': 'test123', 'preserve_metadata': True}
+        response = requests.post(f"{BASE_URL}/encrypt/file", files=files, data=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ 文件加密成功：{result['message']}")
+            encrypted_data = result['encrypted_data']
+            
+            # 測試文件解密
+            import base64
+            encrypted_bytes = base64.b64decode(encrypted_data)
+            files = {'encrypted_file': ('encrypted.bin', io.BytesIO(encrypted_bytes), 'application/octet-stream')}
+            data = {'password': 'test123'}
+            response = requests.post(f"{BASE_URL}/decrypt/file", files=files, data=data)
+            
+            if response.status_code == 200:
+                result = response.json()
+                decrypted_content = base64.b64decode(result['decrypted_data'])
+                if decrypted_content == test_content:
+                    print("✅ 文件解密成功，內容匹配")
+                else:
+                    print("❌ 文件解密後內容不匹配")
+            else:
+                print(f"❌ 文件解密失敗：{response.text}")
+        else:
+            print(f"❌ 文件加密失敗：{response.text}")
+            
+    except Exception as e:
+        print(f"❌ 文件加密測試出錯：{e}")
+
+def test_digital_signatures():
+    """測試數字簽名功能"""
+    print("\n✍️ 測試數字簽名...")
+    
+    try:
+        # 生成密鑰對
+        data = {'key_size': 2048}
+        response = requests.post(f"{BASE_URL}/signature/generate-keypair", json=data)
+        
+        if response.status_code == 200:
+            keypair = response.json()
+            print(f"✅ 密鑰對生成成功，指紋：{keypair.get('fingerprint', '未知')[:16]}...")
+            
+            # 測試數據簽名
+            sign_data = {
+                'data': '這是要簽名的測試數據',
+                'private_key': keypair['private_key'],
+                'hash_algorithm': 'sha256'
+            }
+            response = requests.post(f"{BASE_URL}/signature/sign", json=sign_data)
+            
+            if response.status_code == 200:
+                sign_result = response.json()
+                print("✅ 數字簽名成功")
+                
+                # 測試簽名驗證
+                verify_data = {
+                    'data': '這是要簽名的測試數據',
+                    'signature': sign_result['signature'],
+                    'public_key': sign_result['public_key'],
+                    'hash_algorithm': 'sha256'
+                }
+                response = requests.post(f"{BASE_URL}/signature/verify", json=verify_data)
+                
+                if response.status_code == 200:
+                    verify_result = response.json()
+                    if verify_result['is_valid']:
+                        print("✅ 簽名驗證成功")
+                    else:
+                        print("❌ 簽名驗證失敗")
+                else:
+                    print(f"❌ 簽名驗證請求失敗：{response.text}")
+            else:
+                print(f"❌ 數字簽名失敗：{response.text}")
+        else:
+            print(f"❌ 密鑰對生成失敗：{response.text}")
+            
+    except Exception as e:
+        print(f"❌ 數字簽名測試出錯：{e}")
+
+def test_password_utilities():
+    """測試密碼工具功能"""
+    print("\n🔐 測試密碼工具...")
+    
+    try:
+        # 測試密碼生成
+        data = {
+            'length': 16,
+            'include_uppercase': True,
+            'include_lowercase': True,
+            'include_numbers': True,
+            'include_symbols': True
+        }
+        response = requests.post(f"{BASE_URL}/password/generate", json=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            password = result['password']
+            print(f"✅ 密碼生成成功：{password}")
+            print(f"   強度等級：{result['strength_level']}")
+            
+            # 測試密碼強度分析
+            analyze_data = {'password': password}
+            response = requests.post(f"{BASE_URL}/password/analyze", json=analyze_data)
+            
+            if response.status_code == 200:
+                analysis = response.json()
+                print(f"✅ 密碼強度分析完成，分數：{analysis['strength_score']}/100")
+                print(f"   破解時間：{analysis['time_to_crack']['time']}")
+            else:
+                print(f"❌ 密碼強度分析失敗：{response.text}")
+        else:
+            print(f"❌ 密碼生成失敗：{response.text}")
+        
+        # 測試 PIN 生成
+        pin_data = {'length': 6, 'exclude_patterns': True}
+        response = requests.post(f"{BASE_URL}/password/pin", json=pin_data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ PIN 生成成功：{result['pin']}")
+        else:
+            print(f"❌ PIN 生成失敗：{response.text}")
+            
+    except Exception as e:
+        print(f"❌ 密碼工具測試出錯：{e}")
+
+def test_qr_codes():
+    """測試 QR 碼功能"""
+    print("\n📱 測試 QR 碼功能...")
+    
+    try:
+        # 測試文本 QR 碼生成
+        data = {
+            'data': '這是一個測試 QR 碼內容',
+            'error_correction': 'M',
+            'box_size': 10,
+            'border': 4
+        }
+        response = requests.post(f"{BASE_URL}/qr/generate", json=data)
+        
+        if response.status_code == 200:
+            result = response.json()
+            print(f"✅ QR 碼生成成功，大小：{result['size']} 字節")
+            
+            # 測試 WiFi QR 碼
+            wifi_data = {
+                'ssid': 'TestWiFi',
+                'password': 'testpass123',
+                'security': 'WPA',
+                'hidden': False
+            }
+            response = requests.post(f"{BASE_URL}/qr/wifi", json=wifi_data)
+            
+            if response.status_code == 200:
+                result = response.json()
+                print("✅ WiFi QR 碼生成成功")
+            else:
+                print(f"❌ WiFi QR 碼生成失敗：{response.text}")
+        else:
+            print(f"❌ QR 碼生成失敗：{response.text}")
+            
+    except Exception as e:
+        print(f"❌ QR 碼測試出錯：{e}")
+
 def test_api_info():
     """測試 API 基本信息"""
     print("\n📋 測試 API 基本信息...")
@@ -234,6 +411,10 @@ def main():
     test_text_compression()
     test_hash_functions()
     test_image_steganography()
+    test_file_encryption()
+    test_digital_signatures()
+    test_password_utilities()
+    test_qr_codes()
     
     print("\n" + "=" * 50)
     print("✨ 測試完成！")

@@ -6,6 +6,7 @@ import uvicorn
 import os
 import io
 import tempfile
+import base64
 from encryption.text_encryption import TextEncryption
 from encryption.data_encryption import DataEncryption
 from encryption.image_encryption import ImageEncryption
@@ -13,11 +14,14 @@ from encryption.image_transformation import ImageTransformation
 from encryption.text_compression import TextCompression
 from encryption.hash_functions import HashFunctions
 from encryption.image_steganography import ImageSteganography
+from encryption.file_encryption import FileEncryption
+from encryption.digital_signatures import DigitalSignatures
+from encryption.qr_code_generator import QRCodeGenerator
 
 app = FastAPI(
     title="加密與處理 API 服務",
-    description="提供文本、數據和圖像加密/解密、圖像變換、文本壓縮和哈希服務的 FastAPI 應用程式",
-    version="2.0.0"
+    description="提供文本、數據和圖像加密/解密、圖像變換、文本壓縮、哈希服務、數字簽名和QR碼生成的綜合 FastAPI 應用程式",
+    version="3.0.0"
 )
 
 # 請求模型
@@ -65,6 +69,45 @@ class CrunchHashRequest(BaseModel):
     iterations: Optional[int] = 10000
     algorithm: Optional[str] = "sha256"
 
+# 數字簽名請求模型
+class KeyPairRequest(BaseModel):
+    key_size: Optional[int] = 2048
+    password: Optional[str] = None
+
+class SignDataRequest(BaseModel):
+    data: str
+    private_key: str
+    password: Optional[str] = None
+    hash_algorithm: Optional[str] = "sha256"
+
+class VerifySignatureRequest(BaseModel):
+    data: str
+    signature: str
+    public_key: str
+    hash_algorithm: Optional[str] = "sha256"
+
+
+
+# QR碼請求模型
+class QRGenerateRequest(BaseModel):
+    data: str
+    error_correction: Optional[str] = "M"
+    box_size: Optional[int] = 10
+    border: Optional[int] = 4
+
+class QRWifiRequest(BaseModel):
+    ssid: str
+    password: str
+    security: Optional[str] = "WPA"
+    hidden: Optional[bool] = False
+
+class QRContactRequest(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    org: Optional[str] = None
+    url: Optional[str] = None
+
 # 初始化加密和處理類
 text_crypto = TextEncryption()
 data_crypto = DataEncryption()
@@ -73,12 +116,15 @@ image_transform = ImageTransformation()
 text_compressor = TextCompression()
 hash_functions = HashFunctions()
 image_stego = ImageSteganography()
+file_crypto = FileEncryption()
+digital_signer = DigitalSignatures()
+qr_generator = QRCodeGenerator()
 
 @app.get("/")
 async def root():
     return {
         "message": "歡迎使用加密與處理 API 服務",
-        "version": "2.0.0",
+        "version": "3.0.0",
         "categories": {
             "encryption": {
                 "text_encrypt": "/encrypt/text",
@@ -117,6 +163,25 @@ async def root():
                 "extract_text": "/stego/extract",
                 "check_capacity": "/stego/capacity",
                 "detect_hidden": "/stego/detect"
+            },
+            "file_encryption": {
+                "encrypt_file": "/encrypt/file",
+                "decrypt_file": "/decrypt/file",
+                "file_info": "/file/info"
+            },
+            "digital_signatures": {
+                "generate_keypair": "/signature/generate-keypair",
+                "sign_data": "/signature/sign",
+                "verify_signature": "/signature/verify",
+                "sign_file": "/signature/sign-file",
+                "verify_file": "/signature/verify-file"
+            },
+            "qr_codes": {
+                "generate_qr": "/qr/generate",
+                "read_qr": "/qr/read",
+                "generate_wifi": "/qr/wifi",
+                "generate_contact": "/qr/contact",
+                "generate_url": "/qr/url"
             }
         }
     }
@@ -710,6 +775,265 @@ async def hash_file(algorithm: str = Form("sha256"), file: UploadFile = File(...
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"文件哈希計算失敗: {str(e)}")
+
+# 文件加密端點
+@app.post("/encrypt/file")
+async def encrypt_file_endpoint(
+    file: UploadFile = File(...),
+    password: str = Form(...),
+    preserve_metadata: bool = Form(True)
+):
+    """加密文件"""
+    try:
+        contents = await file.read()
+        encrypted_data = file_crypto.encrypt_file(
+            contents, password, file.filename, preserve_metadata
+        )
+        
+        return {
+            "message": "文件加密成功",
+            "encrypted_data": base64.b64encode(encrypted_data).decode(),
+            "original_filename": file.filename,
+            "encrypted_size": len(encrypted_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/decrypt/file")
+async def decrypt_file_endpoint(
+    encrypted_file: UploadFile = File(...),
+    password: str = Form(...)
+):
+    """解密文件"""
+    try:
+        encrypted_data = await encrypted_file.read()
+        # 如果是base64編碼的數據，嘗試解碼
+        try:
+            if len(encrypted_data) % 4 == 0:
+                test_decode = base64.b64decode(encrypted_data)
+                if file_crypto.is_encrypted_file(test_decode):
+                    encrypted_data = test_decode
+        except:
+            pass
+        
+        decrypted_data, metadata = file_crypto.decrypt_file(encrypted_data, password)
+        
+        return {
+            "message": "文件解密成功",
+            "decrypted_data": base64.b64encode(decrypted_data).decode(),
+            "metadata": metadata,
+            "decrypted_size": len(decrypted_data)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/file/info")
+async def get_file_info_endpoint(
+    encrypted_file: UploadFile = File(...),
+    password: str = Form(...)
+):
+    """獲取加密文件信息"""
+    try:
+        encrypted_data = await encrypted_file.read()
+        info = file_crypto.get_file_info(encrypted_data, password)
+        
+        return {
+            "message": "獲取文件信息成功",
+            "file_info": info
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+# 數字簽名端點
+@app.post("/signature/generate-keypair")
+def generate_keypair_endpoint(request: KeyPairRequest):
+    """生成RSA密鑰對"""
+    try:
+        result = digital_signer.generate_key_pair(
+            key_size=request.key_size,
+            password=request.password
+        )
+        
+        return {
+            "message": "密鑰對生成成功",
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/signature/sign")
+def sign_data_endpoint(request: SignDataRequest):
+    """對數據進行數字簽名"""
+    try:
+        result = digital_signer.sign_data(
+            data=request.data,
+            private_key_pem=request.private_key,
+            password=request.password,
+            hash_algorithm=request.hash_algorithm
+        )
+        
+        return {
+            "message": "數字簽名成功",
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/signature/verify")
+def verify_signature_endpoint(request: VerifySignatureRequest):
+    """驗證數字簽名"""
+    try:
+        result = digital_signer.verify_signature(
+            data=request.data,
+            signature=request.signature,
+            public_key_pem=request.public_key,
+            hash_algorithm=request.hash_algorithm
+        )
+        
+        return {
+            "message": "簽名驗證完成",
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/signature/sign-file")
+async def sign_file_endpoint(
+    file: UploadFile = File(...),
+    private_key: str = Form(...),
+    password: str = Form(None),
+    hash_algorithm: str = Form("sha256")
+):
+    """對文件進行數字簽名"""
+    try:
+        file_data = await file.read()
+        result = digital_signer.sign_file(
+            file_data=file_data,
+            private_key_pem=private_key,
+            password=password,
+            hash_algorithm=hash_algorithm
+        )
+        
+        return {
+            "message": "文件簽名成功",
+            "filename": file.filename,
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/signature/verify-file")
+async def verify_file_signature_endpoint(
+    file: UploadFile = File(...),
+    signature: str = Form(...),
+    public_key: str = Form(...),
+    hash_algorithm: str = Form("sha256")
+):
+    """驗證文件數字簽名"""
+    try:
+        file_data = await file.read()
+        result = digital_signer.verify_file_signature(
+            file_data=file_data,
+            signature=signature,
+            public_key_pem=public_key,
+            hash_algorithm=hash_algorithm
+        )
+        
+        return {
+            "message": "文件簽名驗證完成",
+            "filename": file.filename,
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# QR碼生成端點
+@app.post("/qr/generate")
+def generate_qr_endpoint(request: QRGenerateRequest):
+    """生成QR碼"""
+    try:
+        qr_image = qr_generator.generate_qr_code(
+            data=request.data,
+            error_correction=request.error_correction,
+            box_size=request.box_size,
+            border=request.border
+        )
+        
+        return {
+            "message": "QR碼生成成功",
+            "qr_code": base64.b64encode(qr_image).decode(),
+            "data": request.data,
+            "size": len(qr_image)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/qr/read")
+async def read_qr_endpoint(qr_image: UploadFile = File(...)):
+    """讀取QR碼"""
+    try:
+        image_data = await qr_image.read()
+        result = qr_generator.read_qr_code(image_data)
+        
+        return {
+            "message": "QR碼讀取完成",
+            **result
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/qr/wifi")
+def generate_wifi_qr_endpoint(request: QRWifiRequest):
+    """生成WiFi QR碼"""
+    try:
+        qr_image = qr_generator.generate_wifi_qr(
+            ssid=request.ssid,
+            password=request.password,
+            security=request.security,
+            hidden=request.hidden
+        )
+        
+        return {
+            "message": "WiFi QR碼生成成功",
+            "qr_code": base64.b64encode(qr_image).decode(),
+            "wifi_info": {
+                "ssid": request.ssid,
+                "security": request.security,
+                "hidden": request.hidden
+            }
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/qr/contact")
+def generate_contact_qr_endpoint(request: QRContactRequest):
+    """生成聯絡人QR碼"""
+    try:
+        contact_info = {k: v for k, v in request.dict().items() if v is not None}
+        qr_image = qr_generator.generate_contact_qr(contact_info)
+        
+        return {
+            "message": "聯絡人QR碼生成成功",
+            "qr_code": base64.b64encode(qr_image).decode(),
+            "contact_info": contact_info
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/qr/url")
+def generate_url_qr_endpoint(url: str = Form(...)):
+    """生成URL QR碼"""
+    try:
+        qr_image = qr_generator.generate_url_qr(url)
+        
+        return {
+            "message": "URL QR碼生成成功",
+            "qr_code": base64.b64encode(qr_image).decode(),
+            "url": url
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000) 

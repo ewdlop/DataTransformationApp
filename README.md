@@ -1,6 +1,6 @@
 # 加密與處理 API 服務
 
-一個基於 FastAPI 的全功能加密與處理服務，支持文本、數據和圖像的加密/解密、圖像變換、文本壓縮和哈希操作。
+一個基於 FastAPI 的綜合加密與處理服務，提供文本、數據和圖像的加密/解密、圖像變換、文本壓縮、哈希操作、數字簽名、密碼工具和 QR 碼生成等全方位安全工具。
 
 ![Image](Screenshot2025-07-01140536.png)
 
@@ -38,10 +38,36 @@
 - **隱藏檢測**：檢測圖像中是否包含隱藏的文本信息
 - **量化嵌入**：DCT 方法使用量化技術確保數據完整性
 
+### 📁 文件加密
+- **通用文件加密**：支持任意文件類型的加密和解密
+- **元數據保護**：可選擇保留原始文件名和 MIME 類型
+- **安全文件格式**：自定義加密文件格式，包含完整性檢查
+
+### ✍️ 數字簽名
+- **RSA 密鑰對生成**：支持 2048、3072、4096 位密鑰
+- **數字簽名**：對文本和文件進行 RSA-PSS 數字簽名
+- **簽名驗證**：驗證數字簽名的有效性
+- **多種哈希算法**：支持 SHA256、SHA384、SHA512、SHA3 等
+- **密鑰指紋**：生成密鑰的唯一指紋識別
+
+### 🔐 密碼工具
+- **密碼生成器**：生成高強度隨機密碼
+- **密碼強度分析**：詳細分析密碼強度和破解時間
+- **密碼短語生成**：基於詞典的可記憶密碼短語
+- **PIN 碼生成**：生成安全的數字 PIN 碼
+- **密碼洩露檢查**：檢查密碼是否在已知洩露中（模擬）
+
+### 📱 QR 碼功能
+- **QR 碼生成**：支持文本、URL、WiFi、聯絡人等類型
+- **QR 碼讀取**：從圖像中解析 QR 碼內容
+- **多種格式**：支持不同錯誤修正級別和樣式
+- **專用模板**：WiFi 連接、聯絡人信息等專用格式
+
 ### 🚀 系統特性
 - **RESTful API**：標準的 REST API 接口
 - **安全性**：使用 PBKDF2 密鑰派生函數增強安全性
 - **易於使用**：清晰的 API 文檔和響應格式
+- **模組化設計**：功能分模組，易於維護和擴展
 
 ## 📁 項目結構
 
@@ -56,7 +82,11 @@ PasswordApp/
 │   ├── image_transformation.py  # 圖像變換模組
 │   ├── text_compression.py      # 文本壓縮模組
 │   ├── hash_functions.py        # 哈希函數模組
-│   └── image_steganography.py   # 圖像隱寫術模組
+│   ├── image_steganography.py   # 圖像隱寫術模組
+│   ├── file_encryption.py       # 通用文件加密模組
+│   ├── digital_signatures.py    # 數字簽名模組
+│   ├── password_utilities.py    # 密碼工具模組
+│   └── qr_code_generator.py     # QR 碼生成模組
 ├── requirements.txt             # Python 依賴項
 └── README.md                   # 項目文檔
 ```
@@ -98,6 +128,9 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `POST /decrypt/data` - 數據解密
 - `POST /encrypt/image` - 圖像加密
 - `POST /decrypt/image` - 圖像解密
+- `POST /encrypt/file` - 文件加密
+- `POST /decrypt/file` - 文件解密
+- `POST /file/info` - 獲取加密文件信息
 
 ### 文本壓縮
 - `POST /compress/text` - 文本壓縮
@@ -129,6 +162,27 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `POST /stego/extract` - 從圖像中提取隱藏文本
 - `POST /stego/capacity` - 檢查圖像隱藏容量
 - `POST /stego/detect` - 檢測圖像中的隱藏文本
+
+### 數字簽名
+- `POST /signature/generate-keypair` - 生成 RSA 密鑰對
+- `POST /signature/sign` - 對數據進行數字簽名
+- `POST /signature/verify` - 驗證數字簽名
+- `POST /signature/sign-file` - 對文件進行數字簽名
+- `POST /signature/verify-file` - 驗證文件數字簽名
+
+### 密碼工具
+- `POST /password/generate` - 生成安全密碼
+- `POST /password/analyze` - 分析密碼強度
+- `POST /password/passphrase` - 生成密碼短語
+- `POST /password/pin` - 生成 PIN 碼
+- `POST /password/breach` - 檢查密碼洩露
+
+### QR 碼功能
+- `POST /qr/generate` - 生成 QR 碼
+- `POST /qr/read` - 讀取 QR 碼
+- `POST /qr/wifi` - 生成 WiFi QR 碼
+- `POST /qr/contact` - 生成聯絡人 QR 碼
+- `POST /qr/url` - 生成 URL QR 碼
 
 ## 📚 API 端點
 
