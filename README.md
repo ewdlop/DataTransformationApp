@@ -1,15 +1,36 @@
-# 加密 API 服務
+# 加密與處理 API 服務
 
-一個基於 FastAPI 的全功能加密服務，支持文本、數據和圖像的加密/解密操作。
+一個基於 FastAPI 的全功能加密與處理服務，支持文本、數據和圖像的加密/解密、圖像變換、文本壓縮和哈希操作。
 
 ![Image](Screenshot2025-07-01140536.png)
 
 ## 🌟 特性
 
+### 🔐 加密功能
 - **多種加密算法**：支持 AES 和 Fernet 加密算法
 - **文本加密**：安全的文本加密和解密服務
 - **數據加密**：通用數據加密，支持多種算法
 - **圖像加密**：專門的圖像文件加密功能
+
+### 🖼️ 圖像處理
+- **圖像變換**：調整大小、旋轉、裁剪功能
+- **圖像濾鏡**：模糊、邊緣增強、浮雕等多種效果
+- **圖像增強**：亮度、對比度調整
+- **格式轉換**：支持 JPEG、PNG、BMP、TIFF、WEBP 格式轉換
+- **縮略圖生成**：快速創建縮略圖
+
+### 🗜️ 文本壓縮
+- **多種壓縮算法**：支持 gzip、zlib、bz2、lzma 壓縮
+- **壓縮統計**：詳細的壓縮效果分析
+- **算法比較**：自動比較不同壓縮算法的效果
+
+### #️⃣ 哈希功能
+- **多種哈希算法**：MD5、SHA1、SHA256、SHA512、SHA3、Blake2 等
+- **Crunch Hash**：高強度哈希處理，結合鹽值和多次迭代
+- **HMAC 支持**：基於密鑰的消息認證碼
+- **文件哈希**：支持文件內容哈希計算
+
+### 🚀 系統特性
 - **RESTful API**：標準的 REST API 接口
 - **安全性**：使用 PBKDF2 密鑰派生函數增強安全性
 - **易於使用**：清晰的 API 文檔和響應格式
@@ -18,14 +39,17 @@
 
 ```
 PasswordApp/
-├── main.py                    # FastAPI 主應用程式
-├── encryption/                # 加密模組目錄
-│   ├── __init__.py           # 模組初始化文件
-│   ├── text_encryption.py    # 文本加密模組
-│   ├── data_encryption.py    # 數據加密模組
-│   └── image_encryption.py   # 圖像加密模組
-├── requirements.txt          # Python 依賴項
-└── README.md                # 項目文檔
+├── main.py                       # FastAPI 主應用程式
+├── encryption/                   # 加密與處理模組目錄
+│   ├── __init__.py              # 模組初始化文件
+│   ├── text_encryption.py       # 文本加密模組
+│   ├── data_encryption.py       # 數據加密模組
+│   ├── image_encryption.py      # 圖像加密模組
+│   ├── image_transformation.py  # 圖像變換模組
+│   ├── text_compression.py      # 文本壓縮模組
+│   └── hash_functions.py        # 哈希函數模組
+├── requirements.txt             # Python 依賴項
+└── README.md                   # 項目文檔
 ```
 
 ## 🚀 快速開始
@@ -55,6 +79,41 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - **API 服務**：http://localhost:8000
 - **API 文檔**：http://localhost:8000/docs
 - **ReDoc 文檔**：http://localhost:8000/redoc
+
+## 🔗 API 端點總覽
+
+### 加密功能
+- `POST /encrypt/text` - 文本加密
+- `POST /decrypt/text` - 文本解密
+- `POST /encrypt/data` - 數據加密
+- `POST /decrypt/data` - 數據解密
+- `POST /encrypt/image` - 圖像加密
+- `POST /decrypt/image` - 圖像解密
+
+### 文本壓縮
+- `POST /compress/text` - 文本壓縮
+- `POST /decompress/text` - 文本解壓
+- `POST /compress/stats` - 壓縮統計
+- `POST /compress/compare` - 算法比較
+
+### 圖像變換
+- `POST /transform/image/resize` - 調整大小
+- `POST /transform/image/rotate` - 旋轉圖像
+- `POST /transform/image/crop` - 裁剪圖像
+- `POST /transform/image/filter` - 應用濾鏡
+- `POST /transform/image/brightness` - 調整亮度
+- `POST /transform/image/contrast` - 調整對比度
+- `POST /transform/image/convert` - 格式轉換
+- `POST /transform/image/thumbnail` - 創建縮略圖
+- `POST /transform/image/info` - 獲取圖像信息
+
+### 哈希功能
+- `POST /hash/text` - 文本哈希
+- `POST /hash/verify` - 哈希驗證
+- `POST /hash/multi` - 多重哈希
+- `POST /hash/crunch` - Crunch Hash
+- `POST /hash/crunch/verify` - Crunch Hash 驗證
+- `POST /hash/file` - 文件哈希
 
 ## 📚 API 端點
 
@@ -159,6 +218,75 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 **響應：**
 返回解密後的圖像文件。
 
+### 文本壓縮
+
+#### POST `/compress/text`
+壓縮文本數據。
+
+**請求體：**
+```json
+{
+  "text": "要壓縮的文本內容",
+  "algorithm": "gzip",  // 可選：gzip, zlib, bz2, lzma
+  "level": 6           // 可選：壓縮級別 1-9
+}
+```
+
+#### POST `/decompress/text`
+解壓文本數據。
+
+**請求體：**
+```json
+{
+  "compressed_text": "壓縮後的文本",
+  "algorithm": "gzip"  // 必須與壓縮時使用的算法一致
+}
+```
+
+### 圖像變換
+
+#### POST `/transform/image/resize`
+調整圖像大小。
+
+**請求參數：**
+- `width`：目標寬度
+- `height`：目標高度
+- `maintain_aspect`：是否保持縱橫比（默認 true）
+- `file`：圖像文件
+
+#### POST `/transform/image/filter`
+應用圖像濾鏡。
+
+**請求參數：**
+- `filter_name`：濾鏡名稱（BLUR, CONTOUR, DETAIL, EDGE_ENHANCE, EMBOSS, SMOOTH）
+- `file`：圖像文件
+
+### 哈希功能
+
+#### POST `/hash/text`
+計算文本哈希值。
+
+**請求體：**
+```json
+{
+  "text": "要計算哈希的文本",
+  "algorithm": "sha256"  // 可選：md5, sha1, sha256, sha512 等
+}
+```
+
+#### POST `/hash/crunch`
+使用 Crunch Hash 算法（高強度哈希）。
+
+**請求體：**
+```json
+{
+  "data": "要處理的數據",
+  "salt": "可選的鹽值",
+  "iterations": 10000,    // 迭代次數
+  "algorithm": "sha256"   // 哈希算法
+}
+```
+
 ## 🔧 使用示例
 
 ### Python 客戶端示例
@@ -232,6 +360,29 @@ curl -X POST "http://localhost:8000/encrypt/image" \
      -F "password=imagepass" \
      -F "file=@image.jpg" \
      -o encrypted_image.enc
+
+# 文本壓縮
+curl -X POST "http://localhost:8000/compress/text" \
+     -H "Content-Type: application/json" \
+     -d '{"text": "This is a long text that will be compressed", "algorithm": "gzip"}'
+
+# 圖像調整大小
+curl -X POST "http://localhost:8000/transform/image/resize" \
+     -F "width=800" \
+     -F "height=600" \
+     -F "maintain_aspect=true" \
+     -F "file=@image.jpg" \
+     -o resized_image.png
+
+# 計算文本哈希
+curl -X POST "http://localhost:8000/hash/text" \
+     -H "Content-Type: application/json" \
+     -d '{"text": "Hello World", "algorithm": "sha256"}'
+
+# Crunch Hash 計算
+curl -X POST "http://localhost:8000/hash/crunch" \
+     -H "Content-Type: application/json" \
+     -d '{"data": "sensitive data", "iterations": 10000}'
 ```
 
 ## 🔐 安全特性
@@ -253,6 +404,21 @@ curl -X POST "http://localhost:8000/encrypt/image" \
 
 ### 圖像加密
 - **AES-256-CBC**：專門優化的圖像數據加密
+
+### 圖像處理
+- **PIL/Pillow**：強大的圖像處理庫，支持多種格式和變換
+- **濾鏡效果**：內建多種圖像濾鏡和增強算法
+
+### 文本壓縮
+- **gzip**：快速通用壓縮算法
+- **zlib**：輕量級壓縮庫
+- **bz2**：高壓縮比的塊排序壓縮
+- **lzma**：高效的 LZMA 壓縮算法
+
+### 哈希算法
+- **傳統算法**：MD5、SHA1、SHA256、SHA512
+- **SHA-3 系列**：SHA3-224、SHA3-256、SHA3-384、SHA3-512  
+- **Blake2**：高性能的現代哈希算法
 
 ## 📝 開發說明
 
