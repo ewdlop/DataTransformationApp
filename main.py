@@ -1,9 +1,10 @@
 from fastapi import FastAPI, HTTPException, UploadFile, File, Query, Form
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import Optional, List
 import uvicorn
 import os
+import io
 import tempfile
 from encryption.text_encryption import TextEncryption
 from encryption.data_encryption import DataEncryption
@@ -11,6 +12,7 @@ from encryption.image_encryption import ImageEncryption
 from encryption.image_transformation import ImageTransformation
 from encryption.text_compression import TextCompression
 from encryption.hash_functions import HashFunctions
+from encryption.image_steganography import ImageSteganography
 
 app = FastAPI(
     title="加密與處理 API 服務",
@@ -70,6 +72,7 @@ image_crypto = ImageEncryption()
 image_transform = ImageTransformation()
 text_compressor = TextCompression()
 hash_functions = HashFunctions()
+image_stego = ImageSteganography()
 
 @app.get("/")
 async def root():
@@ -108,6 +111,12 @@ async def root():
                 "multi_hash": "/hash/multi",
                 "crunch_hash": "/hash/crunch",
                 "verify_crunch": "/hash/crunch/verify"
+            },
+            "steganography": {
+                "hide_text": "/stego/hide",
+                "extract_text": "/stego/extract",
+                "check_capacity": "/stego/capacity",
+                "detect_hidden": "/stego/detect"
             }
         }
     }
@@ -484,6 +493,130 @@ async def get_image_info(file: UploadFile = File(...)):
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"圖像信息獲取失敗: {str(e)}")
+
+# 圖像隱寫術端點
+@app.post("/stego/hide")
+async def hide_text_in_image(
+    image: UploadFile = File(...),
+    secret_text: str = Form(...),
+    method: str = Form("lsb", description="隱藏方法: lsb 或 dct"),
+    encrypt_text: bool = Form(False, description="是否加密隱藏的文本"),
+    password: str = Form(None, description="加密密碼（如果 encrypt_text 為 True）"),
+    strength: float = Form(10.0, description="DCT 方法的強度（僅適用於 DCT）")
+):
+    """在圖像中隱藏文本"""
+    try:
+        # 讀取圖像文件
+        image_bytes = await image.read()
+        
+        method = method.lower()
+        if method == "lsb":
+            result_image = image_stego.hide_text_lsb(
+                image_bytes, 
+                secret_text, 
+                encrypt_text=encrypt_text, 
+                password=password
+            )
+        elif method == "dct":
+            if encrypt_text:
+                # DCT 方法目前不支持加密，先手動加密
+                if password:
+                    encrypted_text = text_crypto.encrypt(secret_text, password)
+                    secret_text = f"ENCRYPTED:{encrypted_text}"
+            result_image = image_stego.hide_text_dct(image_bytes, secret_text, strength)
+        else:
+            raise ValueError(f"不支持的隱藏方法: {method}")
+        
+        # 返回處理後的圖像
+        return StreamingResponse(
+            io.BytesIO(result_image),
+            media_type="image/png",
+            headers={"Content-Disposition": f"attachment; filename=hidden_{image.filename}"}
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/stego/extract")
+async def extract_text_from_image(
+    image: UploadFile = File(...),
+    method: str = Form("lsb", description="提取方法: lsb 或 dct"),
+    is_encrypted: bool = Form(False, description="隱藏的文本是否加密"),
+    password: str = Form(None, description="解密密碼（如果 is_encrypted 為 True）"),
+    strength: float = Form(10.0, description="DCT 方法的強度（僅適用於 DCT）")
+):
+    """從圖像中提取隱藏的文本"""
+    try:
+        # 讀取圖像文件
+        image_bytes = await image.read()
+        
+        method = method.lower()
+        if method == "lsb":
+            extracted_text = image_stego.extract_text_lsb(
+                image_bytes,
+                is_encrypted=is_encrypted,
+                password=password
+            )
+        elif method == "dct":
+            extracted_text = image_stego.extract_text_dct(image_bytes, strength)
+            # DCT 方法的解密處理
+            if extracted_text.startswith("ENCRYPTED:"):
+                if not is_encrypted or not password:
+                    raise ValueError("檢測到加密文本，但未提供密碼")
+                encrypted_text = extracted_text[10:]  # 移除 "ENCRYPTED:" 前綴
+                extracted_text = text_crypto.decrypt(encrypted_text, password)
+        else:
+            raise ValueError(f"不支持的提取方法: {method}")
+        
+        return {
+            "extracted_text": extracted_text,
+            "method": method,
+            "text_length": len(extracted_text),
+            "is_encrypted": is_encrypted
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/stego/capacity")
+async def check_image_capacity(
+    image: UploadFile = File(...),
+    method: str = Form("lsb", description="檢查方法: lsb 或 dct")
+):
+    """檢查圖像的隱藏容量"""
+    try:
+        # 讀取圖像文件
+        image_bytes = await image.read()
+        
+        capacity_info = image_stego.check_capacity(image_bytes, method)
+        
+        return {
+            "image_name": image.filename,
+            "capacity": capacity_info
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/stego/detect")
+async def detect_hidden_text(
+    image: UploadFile = File(...),
+    method: str = Form("lsb", description="檢測方法: lsb 或 dct")
+):
+    """檢測圖像中是否隱藏有文本"""
+    try:
+        # 讀取圖像文件
+        image_bytes = await image.read()
+        
+        detection_result = image_stego.detect_hidden_text(image_bytes, method)
+        
+        return {
+            "image_name": image.filename,
+            "detection": detection_result
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 # 哈希函數端點
 @app.post("/hash/text")

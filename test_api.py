@@ -108,6 +108,96 @@ def test_hash_functions():
     else:
         print(f"❌ Crunch Hash 失敗: {response.text}")
 
+def test_image_steganography():
+    """測試圖像隱寫術功能"""
+    print("\n🎭 測試圖像隱寫術...")
+    
+    try:
+        from PIL import Image
+        import io
+        
+        # 創建一個測試圖像
+        test_image = Image.new('RGB', (200, 200), color='blue')
+        image_buffer = io.BytesIO()
+        test_image.save(image_buffer, format='PNG')
+        image_data = image_buffer.getvalue()
+        
+        secret_text = "這是隱藏在圖像中的秘密訊息！🔐"
+        
+        # 測試隱藏文本
+        files = {"image": ("test_image.png", image_data, "image/png")}
+        data = {
+            "secret_text": secret_text,
+            "method": "lsb",
+            "encrypt_text": "false"
+        }
+        
+        response = requests.post(f"{BASE_URL}/stego/hide", files=files, data=data)
+        if response.status_code == 200:
+            hidden_image_data = response.content
+            print(f"✅ 隱藏文本成功，圖像大小: {len(hidden_image_data)} bytes")
+            
+            # 測試提取文本
+            files = {"image": ("hidden_image.png", hidden_image_data, "image/png")}
+            data = {"method": "lsb", "is_encrypted": "false"}
+            
+            response = requests.post(f"{BASE_URL}/stego/extract", files=files, data=data)
+            if response.status_code == 200:
+                result = response.json()
+                extracted_text = result.get('extracted_text', '')
+                print(f"✅ 提取文本成功: {extracted_text}")
+                print(f"✅ 文本匹配: {'是' if extracted_text == secret_text else '否'}")
+            else:
+                print(f"❌ 提取文本失敗: {response.text}")
+                
+            # 測試檢查容量
+            files = {"image": ("test_image.png", image_data, "image/png")}
+            data = {"method": "lsb"}
+            
+            response = requests.post(f"{BASE_URL}/stego/capacity", files=files, data=data)
+            if response.status_code == 200:
+                capacity = response.json()['capacity']
+                print(f"✅ 圖像容量: 最大 {capacity['max_characters']} 字符")
+            else:
+                print(f"❌ 容量檢查失敗: {response.text}")
+                
+            # 測試 DCT 方法
+            print("\n--- 測試 DCT 方法 ---")
+            files = {"image": ("test_image.png", image_data, "image/png")}
+            data = {
+                "secret_text": "DCT測試文本123",
+                "method": "dct",
+                "encrypt_text": "false"
+            }
+            
+            response = requests.post(f"{BASE_URL}/stego/hide", files=files, data=data)
+            if response.status_code == 200:
+                dct_hidden_image_data = response.content
+                print(f"✅ DCT 隱藏成功，圖像大小: {len(dct_hidden_image_data)} bytes")
+                
+                # 提取 DCT 隱藏的文本
+                files = {"image": ("dct_hidden_image.png", dct_hidden_image_data, "image/png")}
+                data = {"method": "dct", "is_encrypted": "false"}
+                
+                response = requests.post(f"{BASE_URL}/stego/extract", files=files, data=data)
+                if response.status_code == 200:
+                    result = response.json()
+                    extracted_text = result.get('extracted_text', '')
+                    print(f"✅ DCT 提取成功: {extracted_text}")
+                    print(f"✅ DCT 文本匹配: {'是' if extracted_text == 'DCT測試文本123' else '否'}")
+                else:
+                    print(f"❌ DCT 提取失敗: {response.text}")
+            else:
+                print(f"❌ DCT 隱藏失敗: {response.text}")
+                
+        else:
+            print(f"❌ 隱藏文本失敗: {response.text}")
+            
+    except ImportError:
+        print("⚠️ 跳過圖像隱寫術測試 (需要 Pillow 庫)")
+    except Exception as e:
+        print(f"❌ 圖像隱寫術測試出錯: {str(e)}")
+
 def test_api_info():
     """測試 API 基本信息"""
     print("\n📋 測試 API 基本信息...")
@@ -143,6 +233,7 @@ def main():
     test_text_encryption()
     test_text_compression()
     test_hash_functions()
+    test_image_steganography()
     
     print("\n" + "=" * 50)
     print("✨ 測試完成！")

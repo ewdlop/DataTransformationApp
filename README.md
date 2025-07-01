@@ -30,6 +30,14 @@
 - **HMAC 支持**：基於密鑰的消息認證碼
 - **文件哈希**：支持文件內容哈希計算
 
+### 🎭 圖像隱寫術
+- **LSB 隱藏**：使用 Least Significant Bit 技術在圖像中隱藏文本（高容量）
+- **DCT 隱藏**：使用改進的 Discrete Cosine Transform 進行更隱蔽的文本隱藏（抗壓縮）
+- **加密隱藏**：在隱藏文本之前可選擇加密文本內容
+- **容量檢查**：檢查圖像可以隱藏多少文本數據
+- **隱藏檢測**：檢測圖像中是否包含隱藏的文本信息
+- **量化嵌入**：DCT 方法使用量化技術確保數據完整性
+
 ### 🚀 系統特性
 - **RESTful API**：標準的 REST API 接口
 - **安全性**：使用 PBKDF2 密鑰派生函數增強安全性
@@ -47,7 +55,8 @@ PasswordApp/
 │   ├── image_encryption.py      # 圖像加密模組
 │   ├── image_transformation.py  # 圖像變換模組
 │   ├── text_compression.py      # 文本壓縮模組
-│   └── hash_functions.py        # 哈希函數模組
+│   ├── hash_functions.py        # 哈希函數模組
+│   └── image_steganography.py   # 圖像隱寫術模組
 ├── requirements.txt             # Python 依賴項
 └── README.md                   # 項目文檔
 ```
@@ -114,6 +123,12 @@ uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 - `POST /hash/crunch` - Crunch Hash
 - `POST /hash/crunch/verify` - Crunch Hash 驗證
 - `POST /hash/file` - 文件哈希
+
+### 圖像隱寫術
+- `POST /stego/hide` - 在圖像中隱藏文本
+- `POST /stego/extract` - 從圖像中提取隱藏文本
+- `POST /stego/capacity` - 檢查圖像隱藏容量
+- `POST /stego/detect` - 檢測圖像中的隱藏文本
 
 ## 📚 API 端點
 
@@ -383,6 +398,30 @@ curl -X POST "http://localhost:8000/hash/text" \
 curl -X POST "http://localhost:8000/hash/crunch" \
      -H "Content-Type: application/json" \
      -d '{"data": "sensitive data", "iterations": 10000}'
+
+# 在圖像中隱藏文本（隱寫術）- LSB 方法
+curl -X POST "http://localhost:8000/stego/hide" \
+     -F "image=@image.png" \
+     -F "secret_text=這是秘密訊息" \
+     -F "method=lsb" \
+     -F "encrypt_text=false"
+
+# 在圖像中隱藏文本（隱寫術）- DCT 方法（更隱蔽）
+curl -X POST "http://localhost:8000/stego/hide" \
+     -F "image=@image.png" \
+     -F "secret_text=這是秘密訊息" \
+     -F "method=dct" \
+     -F "strength=10.0"
+
+# 從圖像中提取隱藏文本
+curl -X POST "http://localhost:8000/stego/extract" \
+     -F "image=@hidden_image.png" \
+     -F "method=lsb"
+
+# 檢查圖像隱藏容量
+curl -X POST "http://localhost:8000/stego/capacity" \
+     -F "image=@image.png" \
+     -F "method=lsb"
 ```
 
 ## 🔐 安全特性
@@ -419,6 +458,21 @@ curl -X POST "http://localhost:8000/hash/crunch" \
 - **傳統算法**：MD5、SHA1、SHA256、SHA512
 - **SHA-3 系列**：SHA3-224、SHA3-256、SHA3-384、SHA3-512  
 - **Blake2**：高性能的現代哈希算法
+
+### 圖像隱寫術方法比較
+
+| 特性 | LSB 方法 | DCT 方法 |
+|------|----------|----------|
+| **隱藏容量** | 高（每像素3位） | 低（每8x8塊1位） |
+| **隱蔽性** | 中等 | 高 |
+| **抗壓縮性** | 弱 | 強 |
+| **計算復雜度** | 低 | 中等 |
+| **推薦用途** | 大量文本隱藏 | 重要信息隱藏 |
+| **默認強度** | N/A | 10.0 |
+
+**使用建議：**
+- 選擇 **LSB** 方法適用於需要隱藏大量文本且圖像不會被壓縮的場景
+- 選擇 **DCT** 方法適用於需要更高隱蔽性且圖像可能被壓縮的場景
 
 ## 📝 開發說明
 
